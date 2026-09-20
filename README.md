@@ -1,112 +1,201 @@
-# QueueLess — AWS "Ship It" build
+<div align="center">
 
-Real AWS services, matching the hackathon track exactly:
+# 🎫 QueueLess
 
-| Need | Service used |
+### An intelligent, serverless virtual queue platform built on AWS
+
+Join queues remotely. Get a live wait-time prediction. Let staff manage the line from a dashboard — all without a single server to patch or scale.
+
+[![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com)
+[![SAM](https://img.shields.io/badge/AWS-SAM-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/serverless/sam/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](#license)
+[![Status](https://img.shields.io/badge/status-live-brightgreen?style=flat-square)](#-live-demo)
+
+[Live Demo](#-live-demo) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [API Reference](#-api-reference)
+
+</div>
+
+---
+
+## 📖 Overview
+
+Traditional queues waste people's time — you take a number, then stand around
+with no idea whether you have 5 minutes or 2 hours left. **QueueLess** turns
+any physical queue into a remote one: customers join from their phone, get a
+token instantly, and see a live estimate of their wait. Staff serve the queue
+from a simple dashboard, and every ticket event flows through a real
+event-driven backend — not a spreadsheet or a whiteboard.
+
+Built for **AWS First Commit (Ship It track)** — every core service in the
+challenge's "Ship It" column is used for a real reason, not just to check a box.
+
+## ✨ Features
+
+- 🎟️ **Instant remote check-in** — pick a service, join, get a token (`A1`, `A2`, ...)
+- 📊 **Live wait-time prediction** — `peopleAhead × avgServiceTime ÷ activeCounters`, recalculated on every poll
+- 👩‍💼 **Staff dashboard** — see who's waiting, call the next customer, mark service complete
+- 🔐 **Secure staff auth** — Amazon Cognito-backed login, JWT-protected staff routes
+- ⚡ **Race-condition safe** — atomic DynamoDB counters and conditional writes prevent duplicate tokens or double-serving
+- 📡 **Event-driven core** — every ticket lifecycle event flows through EventBridge → SNS
+- 🌐 **Zero servers to manage** — 100% Lambda + API Gateway + DynamoDB
+
+## 🏗️ Architecture
+
+```
+                         ┌──────────────────┐
+                         │   S3 Static Site  │  ← Customer + Staff UI
+                         └─────────┬─────────┘
+                                   │
+                         ┌─────────▼─────────┐
+                         │   API Gateway      │  (HTTP API)
+                         │   + Cognito JWT     │  ← protects staff routes
+                         │     Authorizer      │
+                         └─────────┬─────────┘
+                                   │
+        ┌──────────────┬──────────┼──────────┬──────────────┐
+        ▼              ▼          ▼          ▼              ▼
+   ┌─────────┐   ┌──────────┐ ┌────────┐ ┌──────────┐ ┌───────────┐
+   │ JoinFn  │   │ StatusFn │ │StaffFn │ │CallNextFn│ │CompleteFn │
+   └────┬────┘   └────┬─────┘ └───┬────┘ └────┬─────┘ └─────┬─────┘
+        │             │           │           │             │
+        └─────────────┴─────┬─────┴───────────┴─────────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │    DynamoDB      │
+                    │ Services · Tickets│
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │   EventBridge    │  TICKET_CREATED / TICKET_CALLED
+                    └────────┬─────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │       SNS        │  → email / SMS notifications
+                    └─────────────────┘
+
+                    CloudWatch logs + metrics every Lambda invocation
+```
+
+## 🛠️ Tech Stack
+
+| Layer | Service | Why |
+|---|---|---|
+| Compute | **AWS Lambda** (Node.js 20.x) | One focused function per API route — no idle servers |
+| API | **API Gateway** (HTTP API) | Cheaper, faster cold starts than REST API for this scale |
+| Data | **DynamoDB** (on-demand) | Single-digit-ms reads, atomic counters for token generation |
+| Auth | **Amazon Cognito** | Managed user pool + JWT authorizer, no custom password handling |
+| Events | **EventBridge + SNS** | Decouples ticket lifecycle from notification delivery |
+| Hosting | **S3 static website** | Frontend served directly from a bucket, no CDN needed for MVP |
+| Observability | **CloudWatch** | Automatic logs/metrics for every Lambda, zero setup |
+| IaC | **AWS SAM** | One `template.yaml` defines and deploys the entire stack |
+
+## 🔒 Concurrency & Safety
+
+Two real race conditions are handled explicitly, not left to chance:
+
+1. **Duplicate tokens** — `JoinFn` uses a DynamoDB `UpdateItem ADD` on an
+   atomic counter, so two people joining in the same millisecond still get
+   sequential, unique tokens.
+2. **Double-serving** — `CallNextFn` uses a `ConditionExpression` that only
+   succeeds if the ticket is still `WAITING`, so two staff members clicking
+   "Call Next" at the same instant can't both claim the same ticket.
+
+## 🚀 Live Demo
+
+| | |
 |---|---|
-| Serverless compute | **Lambda** |
-| API | **API Gateway** (HTTP API) |
-| Data | **DynamoDB** |
-| Auth | **Cognito** |
-| Plumbing | **EventBridge**, **SNS**, **CloudWatch** |
-| Frontend hosting | **S3** static website |
+| 🌐 **App** | `http://queueless-frontendbucket-3mz5sksdsxhq.s3-website-us-east-1.amazonaws.com` |
+| 👤 **Customer** | Pick a service, join, watch your token and wait time live |
+| 🔑 **Staff login** | `staff1` / `StaffPass123!` |
 
-No paid account needed — this fits the AWS Free Tier (~$200 free credits).
+## 📦 Project Structure
 
-## 0. One-time installs (5–10 min)
-
-1. **AWS account**: https://aws.amazon.com/free — sign up if you haven't.
-2. **AWS CLI**: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-   Then run:
-   ```
-   aws configure
-   ```
-   Paste your Access Key ID, Secret Access Key, a region (e.g. `us-east-1`), and output format `json`.
-   (Create keys in AWS Console → IAM → Users → your user → Security credentials.)
-3. **SAM CLI**: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
-4. **Node.js 20+**: https://nodejs.org
-
-Confirm everything works:
 ```
-aws --version
-sam --version
-node -v
+queueless-aws/
+├── template.yaml          # SAM/CloudFormation — the entire AWS stack
+├── package.json            # Lambda dependencies (AWS SDK v3)
+├── src/
+│   ├── join.js              # POST /queue/{serviceId}/join
+│   ├── status.js            # GET  /queue/{serviceId}/status/{ticketId}
+│   ├── staff.js              # GET  /queue/{serviceId}/staff        (Cognito)
+│   ├── callNext.js           # POST /queue/{serviceId}/call-next    (Cognito)
+│   ├── complete.js           # POST /queue/{serviceId}/complete     (Cognito)
+│   └── services.js           # GET  /services
+├── frontend/
+│   ├── index.html             # Customer + Staff UI
+│   ├── app.js                  # API calls, Cognito login, polling
+│   ├── style.css
+│   └── config.js               # API URL / Cognito IDs (fill after deploy)
+└── README.md
 ```
 
-## 1. Open the project in VS Code
-Unzip `queueless-aws.zip`, open the folder, open a terminal (Terminal → New Terminal).
+## 📡 API Reference
 
-## 2. Build and deploy the backend
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/services` | — | List available queues |
+| `POST` | `/queue/{serviceId}/join` | — | Join a queue, get a token |
+| `GET` | `/queue/{serviceId}/status/{ticketId}` | — | Poll live position + wait estimate |
+| `GET` | `/queue/{serviceId}/staff` | 🔒 Cognito | Staff dashboard view |
+| `POST` | `/queue/{serviceId}/call-next` | 🔒 Cognito | Call the next waiting customer |
+| `POST` | `/queue/{serviceId}/complete` | 🔒 Cognito | Mark a ticket completed |
+
+## ⚡ Getting Started
+
+### Prerequisites
 ```
+AWS CLI · AWS SAM CLI · Node.js 20+ · an AWS account (free tier is enough)
+```
+
+### Deploy
+```bash
 sam build
 sam deploy --guided
 ```
-Answer the prompts:
-- Stack Name: `queueless`
-- AWS Region: your choice (e.g. `us-east-1`)
-- Confirm changes before deploy: `Y`
-- Allow SAM CLI IAM role creation: `Y`
-- Save arguments to samconfig.toml: `Y`
-- Everything else: press Enter for defaults
 
-This creates every resource in the table above. At the end, copy the three
-values under **Outputs**: `ApiUrl`, `UserPoolClientId`, and note your region.
-
-## 3. Create a staff login
-Staff-only actions (call next, view dashboard) require a Cognito user:
-```
+### Create a staff user
+```bash
 aws cognito-idp admin-create-user \
-  --user-pool-id <UserPoolId from Outputs> \
-  --username staff1 \
-  --temporary-password TempPass123! \
-  --message-action SUPPRESS
+  --user-pool-id <UserPoolId> --username staff1 \
+  --temporary-password TempPass123! --message-action SUPPRESS
 
 aws cognito-idp admin-set-user-password \
-  --user-pool-id <UserPoolId from Outputs> \
-  --username staff1 \
-  --password StaffPass123! \
-  --permanent
-```
-Log in on the Staff tab with `staff1` / `StaffPass123!`.
-
-## 4. Configure and deploy the frontend
-Open `frontend/config.js` and paste your values:
-```js
-window.QUEUELESS_CONFIG = {
-  API_URL: 'https://xxxxx.execute-api.us-east-1.amazonaws.com',
-  COGNITO_REGION: 'us-east-1',
-  COGNITO_CLIENT_ID: 'xxxxxxxxxxxxxxxxxxxxxxxxxx'
-};
-```
-Then upload it to S3 (bucket name is in `FrontendBucketName` from Outputs):
-```
-aws s3 sync frontend/ s3://<FrontendBucketName> --acl public-read
-```
-Open the `FrontendUrl` from Outputs in your browser — that's your live app.
-
-## 5. See notifications (optional)
-Ticket events (`TICKET_CREATED`, `TICKET_CALLED`) flow through EventBridge →
-SNS. Subscribe your email to see them:
-```
-aws sns subscribe --topic-arn <check SNS console for ARN> \
-  --protocol email --notification-endpoint you@example.com
+  --user-pool-id <UserPoolId> --username staff1 \
+  --password StaffPass123! --permanent
 ```
 
-## How the pieces map to the code
-- `template.yaml` — every AWS resource (SAM/CloudFormation)
-- `src/*.js` — one Lambda per API route, using AWS SDK v3
-- `frontend/` — plain HTML/JS, calls API Gateway directly + Cognito for staff login
-- Race-condition safety: `join.js` uses an atomic DynamoDB counter;
-  `callNext.js` uses a conditional write so two staff can't claim one ticket
-
-## Redeploying after changes
+### Deploy the frontend
+Fill `frontend/config.js` with your Outputs, then:
+```bash
+aws s3 sync frontend/ s3://<FrontendBucketName>
 ```
-sam build && sam deploy
-```
-(no need for `--guided` again — it reuses `samconfig.toml`)
 
-## Next steps (build in this order)
-1. **RBAC**: restrict Cognito groups (`STAFF` vs `ADMIN`) instead of any logged-in user
-2. **Prediction v2**: log historical service times per hour/day instead of a fixed average
-3. **SageMaker**: swap the rule-based prediction for a trained regression model
-4. **CloudFront**: put the S3 site behind CloudFront + a custom domain (Route 53)
+Full step-by-step walkthrough with every value explained is in
+[`SETUP.md`](./SETUP.md) *(optional — merge into this section if you prefer one file)*.
+
+## 🗺️ Roadmap
+
+- [ ] RBAC via Cognito groups (`STAFF` vs `ADMIN`)
+- [ ] Prediction v2 — historical service-time modeling by hour/day
+- [ ] Prediction v3 — SageMaker regression model
+- [ ] CloudFront + custom domain for HTTPS
+- [ ] QR-code queue joining
+- [ ] Business analytics dashboard
+
+## 🧑‍💻 Author
+
+**Pradumn Saindane** — [GitHub](https://github.com/Pradumnsaindane)
+
+Built for **[AWS First Commit](https://wemakedevs.org/aws/first-commit)** by WeMakeDevs × AWS.
+
+## 📄 License
+
+MIT — free to use, modify, and build on.
+
+---
+
+<div align="center">
+<sub>If this helped you, a ⭐ on the repo is appreciated.</sub>
+</div>
