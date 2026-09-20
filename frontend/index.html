@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QueueLess</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>QueueLess</h1>
+    <nav>
+      <button class="tab active" data-tab="customer">Customer</button>
+      <button class="tab" data-tab="staff">Staff</button>
+    </nav>
+  </header>
+
+  <main id="customer" class="view active">
+    <div class="card">
+      <h2>Join a Queue</h2>
+      <label>Service</label>
+      <select id="serviceSelect"></select>
+      <label>Your name</label>
+      <input id="nameInput" placeholder="e.g. Priya" />
+      <button id="joinBtn">Join Queue</button>
+    </div>
+    <div class="card" id="ticketCard" style="display:none">
+      <h2>Your Token</h2>
+      <div class="token" id="tokenDisplay">-</div>
+      <p>People ahead: <b id="peopleAhead">-</b></p>
+      <p>Estimated wait: <b id="estWait">-</b> min</p>
+      <p class="status" id="statusText">Waiting...</p>
+    </div>
+  </main>
+
+  <main id="staff" class="view">
+    <div class="card" id="loginCard">
+      <h2>Staff Login</h2>
+      <label>Username</label>
+      <input id="staffUser" />
+      <label>Password</label>
+      <input id="staffPass" type="password" />
+      <button id="loginBtn">Log in</button>
+      <p id="loginError" style="color:#dc2626"></p>
+    </div>
+
+    <div class="card" id="dashboardCard" style="display:none">
+      <h2>Staff Dashboard</h2>
+      <label>Service</label>
+      <select id="staffServiceSelect"></select>
+      <div class="serving">
+        <h3>Currently Serving</h3>
+        <div id="servingList">None</div>
+      </div>
+      <button id="callNextBtn">Call Next</button>
+      <h3>Waiting Queue</h3>
+      <ol id="waitingList"></ol>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: QueueLess - serverless virtual queue platform (AWS "Ship It" track)
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        SERVICES_TABLE: !Ref ServicesTable
+        TICKETS_TABLE: !Ref TicketsTable
+        EVENT_BUS: !Ref QueueLessBus
+
+Resources:
+
+  ServicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: serviceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: serviceId
+          KeyType: HASH
+
+  TicketsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: serviceId
+          AttributeType: S
+        - AttributeName: ticketId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: serviceId
+          KeyType: HASH
+        - AttributeName: ticketId
+          KeyType: RANGE
+
+  QueueLessBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: QueueLessBus
+
+  NotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: QueueLessNotifications
+
+  NotifyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref QueueLessBus
+      EventPattern:
+        source: ["queueless"]
+      Targets:
+        - Arn: !Ref NotificationsTopic
+          Id: NotifyTarget
+
+  NotifyTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref NotificationsTopic]
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref NotificationsTopic
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: QueueLessStaffPool
+      AutoVerifiedAttributes: [email]
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+
+  QueueLessApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ["*"]
+        AllowHeaders: ["*"]
+        AllowMethods: ["*"]
+      Auth:
+        Authorizers:
+          CognitoAuth:
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience: [!Ref UserPoolClient]
+            IdentitySource: "$request.header.Authorization"
+
+  ListServicesFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/services.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref ServicesTable }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties: { ApiId: !Ref QueueLessApi, Path: /services, Method: GET }
+
+  JoinFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/join.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref TicketsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref ServicesTable }
+        - EventBridgePutEventsPolicy: { EventBusName: !Ref QueueLessBus }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties: { ApiId: !Ref QueueLessApi, Path: "/queue/{serviceId}/join", Method: POST }
+
+  StatusFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/status.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref TicketsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref ServicesTable }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties: { ApiId: !Ref QueueLessApi, Path: "/queue/{serviceId}/status/{ticketId}", Method: GET }
+
+  StaffViewFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/staff.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref TicketsTable }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QueueLessApi
+            Path: /queue/{serviceId}/staff
+            Method: GET
+            Auth: { Authorizer: CognitoAuth }
+
+  CallNextFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/callNext.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref TicketsTable }
+        - EventBridgePutEventsPolicy: { EventBusName: !Ref QueueLessBus }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QueueLessApi
+            Path: /queue/{serviceId}/call-next
+            Method: POST
+            Auth: { Authorizer: CognitoAuth }
+
+  CompleteFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/complete.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref TicketsTable }
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QueueLessApi
+            Path: /queue/{serviceId}/complete
+            Method: POST
+            Auth: { Authorizer: CognitoAuth }
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${FrontendBucket}/*
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${QueueLessApi}.execute-api.${AWS::Region}.amazonaws.com
+  FrontendUrl:
+    Value: !GetAtt FrontendBucket.WebsiteURL
+  FrontendBucketName:
+    Value: !Ref FrontendBucket
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
