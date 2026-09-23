@@ -26,4 +26,4 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy frontend
-        run: aws s3 sync frontend/ s3://queueless-frontendbucket-3mz5sksdsxhq/ --delete --cache-control no-cache
+        run: aws s3 sync frontend/ s3://queueless-frontendbucket-3mz5sksdsxhq/ --delete --exclude '.git/*' --cache-control 'no-cache, no-store, must-revalidate' --metadata-directive REPLACE
