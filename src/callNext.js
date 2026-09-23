@@ -19,9 +19,7 @@ exports.handler = async (event) => {
   if (!next) return { statusCode: 400, body: JSON.stringify({ error: 'Queue is empty' }) };
 
   try {
-    // ConditionExpression only succeeds if the ticket is still WAITING,
-    // so two staff members clicking "Call Next" at the same instant
-    // cannot both grab the same ticket.
+
     await ddb.send(new UpdateCommand({
       TableName: TICKETS_TABLE,
       Key: { serviceId, ticketId: next.ticketId },

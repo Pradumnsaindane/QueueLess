@@ -1,64 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>QueueLess</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="QueueLess helps people join queues remotely and know when to arrive.">
+  <title>QueueLess — Know when to arrive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>QueueLess</h1>
-    <nav>
-      <button class="tab active" data-tab="customer">Customer</button>
-      <button class="tab" data-tab="staff">Staff</button>
-    </nav>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="QueueLess home"><i class="mark"><b></b><b></b><b></b></i>Queue<span>Less</span></a>
+    <nav aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#why-queueless">Why QueueLess</a><button class="tab active" type="button" data-tab="customer">Join queue</button><button class="tab text-tab" type="button" data-tab="staff">Staff sign in</button></nav>
   </header>
+  <main id="top">
+    <section class="hero">
+      <div><p class="eyebrow"><i></i> Queue management, made predictable</p><h1>Your time is valuable.<br><span>Waiting shouldn’t waste it.</span></h1><p class="lead">Join a service queue from wherever you are, track your place, and arrive when your turn is close.</p><div class="actions"><button class="button primary tab" type="button" data-tab="customer">Join a queue <b>→</b></button><a class="button secondary" href="#how-it-works">See how it works</a></div><p class="trust">✓ No physical line&nbsp;&nbsp;&nbsp; ✓ Live queue updates&nbsp;&nbsp;&nbsp; ✓ Secure staff access</p></div>
+      <div class="hero-visual" aria-hidden="true"><div class="ticket-preview"><div class="preview-top"><b>Queue<span>Less</span></b><em>● Live</em></div><small>YOUR DIGITAL TOKEN</small><strong>A<span>42</span></strong><div class="stats"><p>People ahead<b>3</b></p><p>Estimated wait<b>12 min</b></p></div><div class="progress"><i></i></div><p class="green">● Your turn is getting closer</p></div><div class="float-card one">✓ <span><b>Queue joined</b><small>Your token is ready</small></span></div><div class="float-card two">◷ <span><b>12 min</b><small>Estimated wait</small></span></div></div>
+    </section>
 
-  <main id="customer" class="view active">
-    <div class="card">
-      <h2>Join a Queue</h2>
-      <label>Service</label>
-      <select id="serviceSelect"></select>
-      <label>Your name</label>
-      <input id="nameInput" placeholder="e.g. Priya" />
-      <button id="joinBtn">Join Queue</button>
-    </div>
-    <div class="card" id="ticketCard" style="display:none">
-      <h2>Your Token</h2>
-      <div class="token" id="tokenDisplay">-</div>
-      <p>People ahead: <b id="peopleAhead">-</b></p>
-      <p>Estimated wait: <b id="estWait">-</b> min</p>
-      <p class="status" id="statusText">Waiting...</p>
-    </div>
-  </main>
-
-  <main id="staff" class="view">
-    <div class="card" id="loginCard">
-      <h2>Staff Login</h2>
-      <label>Username</label>
-      <input id="staffUser" />
-      <label>Password</label>
-      <input id="staffPass" type="password" />
-      <button id="loginBtn">Log in</button>
-      <p id="loginError" style="color:#dc2626"></p>
-    </div>
-
-    <div class="card" id="dashboardCard" style="display:none">
-      <h2>Staff Dashboard</h2>
-      <label>Service</label>
-      <select id="staffServiceSelect"></select>
-      <div class="serving">
-        <h3>Currently Serving</h3>
-        <div id="servingList">None</div>
+    <section id="customer" class="view active shell">
+      <div class="intro"><p>Customer portal</p><h2>Join a queue in under a minute.</h2><span>Select a service, add your name, and receive your digital token.</span></div>
+      <div class="grid customer-grid">
+        <article class="card"><div class="card-title"><b>01</b><div><h3>Choose your service</h3><p>Tell us where you need to go.</p></div></div><form id="joinForm" novalidate><label for="serviceSelect">Service</label><select id="serviceSelect" required><option value="">Loading services…</option></select><label for="nameInput">Your name <span>(optional)</span></label><input id="nameInput" maxlength="60" autocomplete="name" placeholder="e.g. Priya"><button id="joinBtn" class="button primary wide" type="submit">Join queue <b>→</b></button><p id="joinError" class="message" role="alert"></p></form></article>
+        <article class="card ticket-card" id="ticketCard" hidden aria-live="polite"><div class="ticket-top"><b>02</b><em>● Live status</em></div><small>YOUR TOKEN</small><div class="token" id="tokenDisplay">—</div><hr><div class="ticket-stats"><p>People ahead<b id="peopleAhead">—</b></p><p>Estimated wait<b><span id="estWait">—</span> min</b></p></div><p class="status" id="statusText">● Waiting for your turn</p><button id="leaveQueueBtn" class="link-button" type="button">Start another queue</button></article>
+        <aside class="info"><b>⌁</b><h3>Know before you go</h3><p>QueueLess estimates your wait from the people ahead and service capacity.</p><a href="#why-queueless">Why it works →</a></aside>
       </div>
-      <button id="callNextBtn">Call Next</button>
-      <h3>Waiting Queue</h3>
-      <ol id="waitingList"></ol>
-    </div>
-  </main>
+    </section>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+    <section id="staff" class="view shell staff-section">
+      <div class="intro"><p>Staff portal</p><h2>Keep the queue moving.</h2><span>Sign in to view the live queue and call the next customer.</span></div>
+      <div class="grid staff-grid">
+        <article class="card" id="loginCard"><div class="card-title"><b>Staff</b><div><h3>Staff sign in</h3><p>Use your organisation account.</p></div></div><form id="loginForm" novalidate><label for="staffUser">Username</label><input id="staffUser" autocomplete="username" required><label for="staffPass">Password</label><div class="password"><input id="staffPass" type="password" autocomplete="current-password" required><button id="passwordToggle" type="button">Show</button></div><button id="loginBtn" class="button primary wide" type="submit">Sign in securely <b>→</b></button><p id="loginError" class="message" role="alert"></p></form></article>
+        <article class="card dashboard" id="dashboardCard" hidden><div class="dash-heading"><div><p>Live dashboard</p><h3>Today’s queue</h3></div><button id="signOutBtn" class="link-button" type="button">Sign out</button></div><label for="staffServiceSelect">Service</label><select id="staffServiceSelect"><option value="">Loading services…</option></select><div class="serving"><small>Currently serving <i>●</i></small><b id="servingList">No customer is currently being served</b></div><button id="callNextBtn" class="button primary wide" type="button">Call next customer <b>→</b></button><div class="list-title"><h4>Waiting queue</h4><span id="waitingCount">0 waiting</span></div><ol id="waitingList"></ol><p id="staffError" class="message" role="alert"></p></article>
+        <aside class="info plain"><b>🔒</b><h3>Protected staff area</h3><p>Staff actions require secure authentication and are not available to customers.</p></aside>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how shell"><div class="intro center"><p>Simple by design</p><h2>A clearer way to manage a queue.</h2></div><div class="steps"><article><b>1</b><h3>Choose a service</h3><p>Select the service you need from your organisation.</p></article><article><b>2</b><h3>Get your token</h3><p>Receive a digital token and estimated wait time.</p></article><article><b>3</b><h3>Arrive at the right time</h3><p>Track your status instead of waiting in a line.</p></article></div></section>
+    <section id="why-queueless" class="why shell"><div class="intro"><p>Why QueueLess</p><h2>Built for time that matters.</h2></div><div><p>Long queues create uncertainty for customers and make it harder for teams to manage service flow. QueueLess makes the experience more predictable for everyone.</p><p>Customers can join remotely and follow their position. Organisations gain a simpler way to organise demand, reduce overcrowding, and keep people informed.</p><strong>Don’t wait in line. Know when to arrive.</strong></div></section>
+  </main>
+  <footer><a class="brand" href="#top"><i class="mark"><b></b><b></b><b></b></i>Queue<span>Less</span></a><p>Queue management for a more predictable day.</p></footer>
+  <script src="config.js"></script><script src="app.js"></script>
 </body>
 </html>
